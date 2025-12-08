@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Vuln Scanner</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        input[type="text"] { width: 70%; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #28a745; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .result-section { margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        .danger { color: red; font-weight: bold; }
+        .safe { color: green; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Web Vulnerability Scanner</h1>
+        <form action="/scan" method="POST" style="text-align: center;">
+            <input type="text" name="url" placeholder="Enter URL (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1)" required>
+            <button type="submit">Scan</button>
+        </form>
+
+        {% if results %}
+        <h2>Results for: {{ target }}</h2>
+
+        <div class="result-section">
+            <h3>🛡️ Security Headers</h3>
+            <ul>
+                {% for item in results.headers %}
+                    <li class="{{ 'safe' if 'secure' in item else 'warning' }}">{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="result-section">
+            <h3>🔌 Open Ports</h3>
+            <ul>
+                {% for item in results.ports %}
+                    <li>{{ item }}</li>
+                {% else %}
+                    <li>No common open ports found or firewall active.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="result-section">
+            <h3>💉 SQL Injection</h3>
+            <ul>
+                {% for item in results.sqli %}
+                    <li class="danger">{{ item }}</li>
+                {% else %}
+                    <li class="safe">No basic SQLi vulnerabilities detected.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="result-section">
+            <h3>❌ XSS Vulnerabilities</h3>
+            <ul>
+                {% for item in results.xss %}
+                    <li class="danger">{{ item }}</li>
+                {% else %}
+                    <li class="safe">No reflected XSS detected.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
