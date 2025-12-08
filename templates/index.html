@@ -5,31 +5,238 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Vuln Scanner</title>
     <style>
-        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1 { color: #333; text-align: center; }
-        input[type="text"] { width: 70%; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; background-color: #28a745; color: white; border: none; cursor: pointer; }
-        button:hover { background-color: #218838; }
-        .result-section { margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
-        .danger { color: red; font-weight: bold; }
-        .safe { color: green; }
-        .warning { color: orange; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1rem;
+        }
+
+        form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 300px;
+            padding: 16px 20px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 16px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            font-size: 1.5rem;
+        }
+
+        .result-section {
+            margin-bottom: 35px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .result-section:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transform: translateX(5px);
+        }
+
+        .result-section h3 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        ul li {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            border-left: 3px solid #ddd;
+            transition: all 0.2s ease;
+        }
+
+        ul li:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .danger {
+            color: #dc3545;
+            font-weight: 600;
+            border-left-color: #dc3545 !important;
+            background: #fff5f5 !important;
+        }
+
+        .safe {
+            color: #28a745;
+            font-weight: 500;
+            border-left-color: #28a745 !important;
+            background: #f0fff4 !important;
+        }
+
+        .warning {
+            color: #fd7e14;
+            font-weight: 500;
+            border-left-color: #fd7e14 !important;
+            background: #fff8f0 !important;
+        }
+
+        .icon {
+            font-size: 1.4rem;
+            display: inline-block;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            form {
+                flex-direction: column;
+            }
+
+            input[type="text"] {
+                min-width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Web Vulnerability Scanner</h1>
-        <form action="/scan" method="POST" style="text-align: center;">
+        <h1><span class="icon">🔍</span> Web Vulnerability Scanner</h1>
+        <p class="subtitle">Analyze websites for common security vulnerabilities</p>
+        
+        <form action="/scan" method="POST">
             <input type="text" name="url" placeholder="Enter URL (e.g., http://testphp.vulnweb.com/listproducts.php?cat=1)" required>
-            <button type="submit">Scan</button>
+            <button type="submit">Scan Now</button>
         </form>
 
+        <div class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #666;">Scanning in progress...</p>
+        </div>
+
         {% if results %}
-        <h2>Results for: {{ target }}</h2>
+        <h2>📊 Scan Results for: <span style="color: #667eea;">{{ target }}</span></h2>
 
         <div class="result-section">
-            <h3>🛡️ Security Headers</h3>
+            <h3><span class="icon">🛡️</span> Security Headers</h3>
             <ul>
                 {% for item in results.headers %}
                     <li class="{{ 'safe' if 'secure' in item else 'warning' }}">{{ item }}</li>
@@ -38,34 +245,34 @@
         </div>
 
         <div class="result-section">
-            <h3>🔌 Open Ports</h3>
+            <h3><span class="icon">🔌</span> Open Ports</h3>
             <ul>
                 {% for item in results.ports %}
                     <li>{{ item }}</li>
                 {% else %}
-                    <li>No common open ports found or firewall active.</li>
+                    <li class="safe">No common open ports found or firewall active</li>
                 {% endfor %}
             </ul>
         </div>
 
         <div class="result-section">
-            <h3>💉 SQL Injection</h3>
+            <h3><span class="icon">💉</span> SQL Injection</h3>
             <ul>
                 {% for item in results.sqli %}
                     <li class="danger">{{ item }}</li>
                 {% else %}
-                    <li class="safe">No basic SQLi vulnerabilities detected.</li>
+                    <li class="safe">No basic SQLi vulnerabilities detected</li>
                 {% endfor %}
             </ul>
         </div>
 
         <div class="result-section">
-            <h3>❌ XSS Vulnerabilities</h3>
+            <h3><span class="icon">❌</span> XSS Vulnerabilities</h3>
             <ul>
                 {% for item in results.xss %}
                     <li class="danger">{{ item }}</li>
                 {% else %}
-                    <li class="safe">No reflected XSS detected.</li>
+                    <li class="safe">No reflected XSS detected</li>
                 {% endfor %}
             </ul>
         </div>
