@@ -98,7 +98,7 @@ Load custom payloads when prompted.
 ```
 
 ### 📂 Project Structure
-Plaintext
+
 ```bash
 vulnspectra/
 ├── app.py                # Flask Web Server (Backend)
@@ -111,12 +111,14 @@ vulnspectra/
 └── templates/
     └── index.html        # Web Dashboard Frontend
 ```
-📸 Screenshots
+### 📸 Screenshots
+### Web Dashboard
+<img width="1366" height="624" alt="Screenshot From 2025-12-09 21-17-06" src="https://github.com/user-attachments/assets/a2c2099c-3e68-49a5-b3c0-beaa0be80c30" />
 
-Web Dashboard
-Interactive CLI
-⚠️ Disclaimer
-Plaintext
+### Interactive CLI
+<img width="1366" height="733" alt="Screenshot From 2025-12-09 21-37-42" src="https://github.com/user-attachments/assets/8e1e5379-12ae-42cd-99f2-0d8f7994e6d5" />
+
+### ⚠️ Disclaimer
 
 This tool is developed for educational purposes and ethical security testing only. 
 The developer is not responsible for any misuse or damage caused by this tool. 
