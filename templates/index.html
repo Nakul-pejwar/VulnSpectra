@@ -126,6 +126,19 @@
     let sqlPayloads = [];
     let xssPayloads = [];
 
+    // --- FIX 1: SANITIZATION FUNCTION ---
+    // This converts dangerous characters (<, >) into safe text (&lt;, &gt;)
+    // so the browser displays them instead of running them.
+    function escapeHtml(text) {
+        if (!text) return text;
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function handleFile(input, type) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
@@ -178,7 +191,6 @@
             if(document.getElementById('checkSQL').checked) {
                 const msg = sqlPayloads.length > 0 ? `Testing SQL (${sqlPayloads.length} Custom)...` : "Testing SQL (Default)...";
                 updateMainProgress(60, msg);
-                // Pass sqlPayloads specifically
                 await runStreamedStep('/api/scan/sql', url, "SQL Injection", "💉", sqlPayloads);
             }
 
@@ -186,7 +198,6 @@
             if(document.getElementById('checkXSS').checked) {
                 const msg = xssPayloads.length > 0 ? `Testing XSS (${xssPayloads.length} Custom)...` : "Testing XSS (Default)...";
                 updateMainProgress(80, msg);
-                // Pass xssPayloads specifically
                 await runStreamedStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀", xssPayloads);
             }
 
@@ -263,7 +274,12 @@
         const isSafe = issues.length === 0;
         const colorClass = isSafe ? 'safe' : 'danger';
         const statusText = isSafe ? '✅ Safe' : `❌ ${issues.length} Issues Found`;
-        let contentHtml = isSafe ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' : '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        
+        // --- FIX 2: APPLY ESCAPEHTML HERE ---
+        let contentHtml = isSafe 
+            ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' 
+            : '<ul>' + issues.map(i => `<li>${escapeHtml(i)}</li>`).join('') + '</ul>';
+
         container.innerHTML += `<div class="result-card ${colorClass}"><div class="card-header"><span>${icon} ${title}</span><span>${statusText}</span></div><div class="card-body">${contentHtml}</div></div>`;
     }
 
@@ -301,7 +317,11 @@
         card.querySelector('.step-label').style.display = 'none';
         const list = document.getElementById(id + '-list');
         list.style.display = 'block';
-        list.innerHTML = isSafe ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' : findings.map(f => `<li>${f}</li>`).join('');
+        
+        // --- FIX 3: APPLY ESCAPEHTML HERE ---
+        list.innerHTML = isSafe 
+            ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' 
+            : findings.map(f => `<li>${escapeHtml(f)}</li>`).join('');
     }
 </script>
 
