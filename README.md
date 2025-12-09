@@ -18,4 +18,4 @@ A lightweight web application security scanner built with Python and Flask. This
 ## ⚙️ Installation
 1. Clone the repo:
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/web-vuln-scanner.git](https://github.com/YOUR_USERNAME/web-vuln-scanner.git)
+   git clone [https://github.com/Nakul-pejwar/VulnSpectra.git]

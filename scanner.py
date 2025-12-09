@@ -3,9 +3,10 @@ import socket
 import sys
 import os
 import time
+import concurrent.futures
 from bs4 import BeautifulSoup, Tag
 from urllib.parse import urljoin
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, Generator
 
 # UI Libraries
 from colorama import init, Fore, Style
@@ -20,6 +21,8 @@ class VulnerabilityScanner:
     def __init__(self, target_url: str, session: Optional[requests.Session] = None):
         self.target_url: str = target_url
         self.session: requests.Session = session or requests.Session()
+        # Threading pool size (Safe number to avoid crashing sites)
+        self.max_threads = 10 
 
     def extract_forms(self, url: str) -> List[Tag]:
         try:
@@ -48,11 +51,33 @@ class VulnerabilityScanner:
             elif input_name:
                 post_data[input_name] = input_val
         
-        if method.lower() == "post":
-            return self.session.post(post_url, data=post_data, timeout=10)
-        return self.session.get(post_url, params=post_data, timeout=10)
+        try:
+            if method.lower() == "post":
+                return self.session.post(post_url, data=post_data, timeout=5)
+            return self.session.get(post_url, params=post_data, timeout=5)
+        except requests.exceptions.RequestException:
+            # Return a dummy object if connection fails to keep threads alive
+            dummy = requests.Response()
+            dummy.status_code = 0
+            return dummy
 
-    # --- SCANNERS ---
+    # --- HELPER: Single Payload Check (Runs in a Thread) ---
+    def _test_sql_payload(self, form: Tag, payload: str) -> Optional[str]:
+        response = self.submit_form(form, payload, self.target_url)
+        if "You have an error in your SQL syntax" in response.text or \
+           "mysql_fetch" in response.text:
+            action = str(form.get('action'))
+            return f"Vulnerable Form: {action} | PAYLOAD: {payload}"
+        return None
+
+    def _test_xss_payload(self, form: Tag, payload: str) -> Optional[str]:
+        response = self.submit_form(form, payload, self.target_url)
+        if payload in response.content.decode():
+            action = str(form.get('action'))
+            return f"XSS Found in: {action} | PAYLOAD: {payload}"
+        return None
+
+    # --- SCANNERS (Standard Lists) ---
     def check_security_headers(self) -> List[str]:
         findings: List[str] = []
         try:
@@ -72,6 +97,7 @@ class VulnerabilityScanner:
         hostname = self.target_url.replace("http://", "").replace("https://", "").split("/")[0]
         ports = [21, 22, 80, 443, 3306]
         
+        # Ports are fast enough to run sequentially or with small socket timeouts
         for port in ports:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -84,58 +110,83 @@ class VulnerabilityScanner:
                 pass
         return findings
 
-    def scan_sql_injection(self, custom_payloads: List[str] = []) -> List[str]:
-        findings: List[str] = []
-        sql_payloads: List[str] = custom_payloads if custom_payloads else ["'", "' OR '1'='1", '" OR "1"="1']
-        forms: List[Tag] = self.extract_forms(self.target_url)
+    # --- SCANNERS (Threaded Generators) ---
+    def scan_sql_injection(self, custom_payloads: List[str] = []) -> Generator[Dict[str, Any], None, None]:
+        sql_payloads = custom_payloads if custom_payloads else ["'", "' OR '1'='1", '" OR "1"="1']
+        forms = self.extract_forms(self.target_url)
         
-        print(f"{Fore.YELLOW}[*] Scanning {len(forms)} forms with {len(sql_payloads)} payloads...")
+        total_scans = len(forms) * len(sql_payloads)
+        current_scan = 0
         
-        for form in forms:
-            for payload in sql_payloads:
-                try:
-                    response = self.submit_form(form, payload, self.target_url)
-                    if "You have an error in your SQL syntax" in response.text or \
-                       "mysql_fetch" in response.text:
-                        action = str(form.get('action'))
-                        msg = f"Vulnerable Form: {action} | PAYLOAD: {payload}"
-                        if msg not in findings:
-                            findings.append(msg)
-                            print(f"{Fore.GREEN}[+] FOUND: {msg}")
-                except:
-                    continue
-        return findings
+        yield {"type": "info", "msg": f"Found {len(forms)} forms. Spawning {self.max_threads} threads for {len(sql_payloads)} payloads..."}
 
-    def scan_xss(self, custom_payloads: List[str] = []) -> List[str]:
-        findings: List[str] = []
-        xss_payloads: List[str] = custom_payloads if custom_payloads else ["<script>alert('XSS')</script>", "<img src=x onerror=alert(1)>"]
-        forms: List[Tag] = self.extract_forms(self.target_url)
-        
-        print(f"{Fore.YELLOW}[*] Scanning {len(forms)} forms with {len(xss_payloads)} payloads...")
+        if total_scans == 0:
+            yield {"type": "progress", "percent": 100}
+            return
 
-        for form in forms:
-            for payload in xss_payloads:
+        # Create Thread Pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+            # Dictionary to map futures to payloads (optional, for debugging)
+            futures = []
+            
+            # Queue up all jobs
+            for form in forms:
+                for payload in sql_payloads:
+                    futures.append(executor.submit(self._test_sql_payload, form, payload))
+            
+            # Process results as they finish (Streaming)
+            for future in concurrent.futures.as_completed(futures):
+                current_scan += 1
+                percent = int((current_scan / total_scans) * 100)
+                yield {"type": "progress", "percent": percent}
+
                 try:
-                    response = self.submit_form(form, payload, self.target_url)
-                    if payload in response.content.decode():
-                        action = str(form.get('action'))
-                        msg = f"XSS Found in: {action} | PAYLOAD: {payload}"
-                        if msg not in findings:
-                            findings.append(msg)
-                            print(f"{Fore.GREEN}[+] FOUND: {msg}")
-                except:
+                    result = future.result()
+                    if result:
+                         yield {"type": "finding", "data": result}
+                except Exception:
                     continue
-        return findings
+
+    def scan_xss(self, custom_payloads: List[str] = []) -> Generator[Dict[str, Any], None, None]:
+        xss_payloads = custom_payloads if custom_payloads else ["<script>alert('XSS')</script>", "<img src=x onerror=alert(1)>"]
+        forms = self.extract_forms(self.target_url)
+        
+        total_scans = len(forms) * len(xss_payloads)
+        current_scan = 0
+        
+        yield {"type": "info", "msg": f"Found {len(forms)} forms. Spawning {self.max_threads} threads for {len(xss_payloads)} payloads..."}
+
+        if total_scans == 0:
+            yield {"type": "progress", "percent": 100}
+            return
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+            futures = []
+            
+            for form in forms:
+                for payload in xss_payloads:
+                    futures.append(executor.submit(self._test_xss_payload, form, payload))
+            
+            for future in concurrent.futures.as_completed(futures):
+                current_scan += 1
+                percent = int((current_scan / total_scans) * 100)
+                yield {"type": "progress", "percent": percent}
+
+                try:
+                    result = future.result()
+                    if result:
+                         yield {"type": "finding", "data": result}
+                except Exception:
+                    continue
 
 # ==========================================
-#  NEW INTERACTIVE CLI (LOXS STYLE)
+#  CLI LOGIC
 # ==========================================
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def display_banner():
-    # Similar style to LOXS panel
     panel = Panel(
         r"""
 ██    ██ ██    ██ ██      ███    ██ ███████ ██████  ███████  ██████ ████████ ██████   █████  
@@ -144,14 +195,14 @@ def display_banner():
  ██  ██  ██    ██ ██      ██  ██ ██      ██ ██      ██      ██         ██    ██   ██ ██   ██ 
   ████    ██████  ███████ ██   ████ ███████ ██      ███████  ██████    ██    ██   ██ ██   ██ 
         """,
-        title="[bold green]VULNSPECTRA v2.0[/bold green]",
-        subtitle="[cyan]Automated Web Vulnerability Scanner[/cyan]",
+        title="[bold green]VULNSPECTRA PRO (Multi-Threaded)[/bold green]",
+        subtitle="[cyan]High-Speed Web Vulnerability Scanner[/cyan]",
         style="bold blue",
         border_style="cyan",
         expand=False
     )
     console.print(panel)
-    print(f"\n{Fore.CYAN}Created by: You | Style inspired by LOXS\n")
+    print(f"\n{Fore.CYAN}Created by: You | Speed Optimized\n")
 
 def get_file_payloads(prompt_text: str) -> List[str]:
     file_path = input(prompt_text).strip()
@@ -169,11 +220,42 @@ def get_file_payloads(prompt_text: str) -> List[str]:
         print(f"{Fore.RED}[!] Error reading file: {e}")
         return []
 
+def handle_scan_result(scan_result: Union[List[str], Generator]) -> List[str]:
+    findings = []
+    
+    if isinstance(scan_result, list):
+        return scan_result
+    
+    try:
+        for update in scan_result:
+            if update['type'] == 'progress':
+                percent = update['percent']
+                bar_length = 30
+                filled_length = int(bar_length * percent // 100)
+                bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                sys.stdout.write(f"\r{Fore.YELLOW}[{bar}] {percent}% ")
+                sys.stdout.flush()
+                
+            elif update['type'] == 'finding':
+                findings.append(update['data'])
+                sys.stdout.write("\r" + " " * 50 + "\r") 
+                print(f"{Fore.GREEN}[+] FOUND: {update['data']}")
+                
+            elif update['type'] == 'info':
+                sys.stdout.write("\r" + " " * 50 + "\r")
+                print(f"{Fore.CYAN}[i] {update['msg']}")
+                
+        print(f"\r{Fore.GREEN}[*] Scan Complete!                                   ")
+    except Exception as e:
+        print(f"\n{Fore.RED}[!] Error reading scan stream: {e}")
+        
+    return findings
+
 def print_summary(findings: List[str]):
     if not findings:
         print(f"\n{Fore.RED}[-] No vulnerabilities found in this scan.")
     else:
-        print(f"\n{Fore.GREEN}[+] Scan Complete! Findings:")
+        print(f"\n{Fore.GREEN}[+] Scan Summary:")
         for f in findings:
             print(f"{Fore.GREEN} -> {f}")
     
@@ -184,7 +266,6 @@ def main():
         clear_screen()
         display_banner()
         
-        # 1. Ask for URL
         target_url = input(f"{Fore.YELLOW}[?] Enter Target URL (e.g., http://testphp.vulnweb.com): {Style.RESET_ALL}").strip()
         
         if not target_url:
@@ -194,7 +275,6 @@ def main():
 
         scanner = VulnerabilityScanner(target_url)
 
-        # 2. Display Menu
         print(f"\n{Fore.CYAN}[?] Select Attack Vector:")
         print(f"{Fore.WHITE}1] {Fore.GREEN}Check Security Headers")
         print(f"{Fore.WHITE}2] {Fore.GREEN}Scan Open Ports")
@@ -207,7 +287,6 @@ def main():
 
         payloads: List[str] = []
 
-        # 3. Handle Payloads (Only if needed)
         if choice in ['3', '4', '5']:
             use_custom = input(f"{Fore.CYAN}[?] Do you want to load a custom payload file? (y/n): {Style.RESET_ALL}").lower()
             if use_custom == 'y':
@@ -217,37 +296,34 @@ def main():
 
         print(f"\n{Fore.CYAN}[*] Starting Scan on {target_url}...\n")
         
-        # 4. Execute Logic
-        results = []
-        
         if choice == '1':
-            results = scanner.check_security_headers()
+            results = handle_scan_result(scanner.check_security_headers())
             print_summary(results)
             
         elif choice == '2':
-            results = scanner.scan_ports()
+            results = handle_scan_result(scanner.scan_ports())
             print_summary(results)
             
         elif choice == '3':
-            results = scanner.scan_sql_injection(payloads)
+            results = handle_scan_result(scanner.scan_sql_injection(payloads))
             print_summary(results)
             
         elif choice == '4':
-            results = scanner.scan_xss(payloads)
+            results = handle_scan_result(scanner.scan_xss(payloads))
             print_summary(results)
             
         elif choice == '5':
             print(f"{Fore.MAGENTA}--- HEADERS ---")
-            print_summary(scanner.check_security_headers())
+            print_summary(handle_scan_result(scanner.check_security_headers()))
             
             print(f"{Fore.MAGENTA}--- PORTS ---")
-            print_summary(scanner.scan_ports())
+            print_summary(handle_scan_result(scanner.scan_ports()))
             
             print(f"{Fore.MAGENTA}--- SQL INJECTION ---")
-            print_summary(scanner.scan_sql_injection(payloads))
+            print_summary(handle_scan_result(scanner.scan_sql_injection(payloads)))
             
             print(f"{Fore.MAGENTA}--- XSS ---")
-            print_summary(scanner.scan_xss(payloads))
+            print_summary(handle_scan_result(scanner.scan_xss(payloads)))
 
         elif choice == '0':
             print(f"{Fore.RED}\n[!] Exiting VulnSpectra. Goodbye!")

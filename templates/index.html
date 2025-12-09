@@ -5,93 +5,147 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VulnSpectra Pro</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #1a73e8; margin-bottom: 25px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 950px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 0.9em; }
 
         /* Configuration Grid */
-        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e1e1; }
-        .config-item h3 { margin: 0 0 10px 0; font-size: 16px; color: #555; }
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         
-        /* Checkboxes */
-        .checkbox-group label { display: block; margin-bottom: 8px; cursor: pointer; }
-        .checkbox-group input { margin-right: 10px; }
+        .config-card { background: #f8f9fa; border: 1px solid #e1e1e1; border-radius: 8px; padding: 20px; }
+        .config-card h3 { margin-top: 0; border-bottom: 2px solid #1a73e8; display: inline-block; padding-bottom: 5px; font-size: 16px; color: #444; }
 
-        /* File Upload */
-        .file-upload { border: 2px dashed #ddd; padding: 15px; text-align: center; border-radius: 6px; cursor: pointer; transition: 0.3s; }
-        .file-upload:hover { border-color: #1a73e8; background: #e8f0fe; }
+        /* Specific Upload Buttons */
+        .vector-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; background: white; padding: 10px; border-radius: 6px; border: 1px solid #eee; }
+        .vector-label { display: flex; align-items: center; font-weight: 500; cursor: pointer; }
+        .vector-label input { accent-color: #1a73e8; transform: scale(1.2); margin-right: 10px; }
         
-        /* Main Input */
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; outline: none; }
-        button#scanBtn { padding: 12px 30px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
+        .mini-upload-btn { 
+            font-size: 12px; padding: 5px 10px; border: 1px dashed #aaa; border-radius: 4px; 
+            cursor: pointer; background: #fafafa; transition: 0.2s; color: #666; display: flex; align-items: center; gap: 5px;
+            max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .mini-upload-btn:hover { border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; }
+        .file-loaded { border-color: #2e7d32; color: #2e7d32; background: #e8f5e9; font-weight: bold; }
 
-        /* Progress & Results */
-        .progress-container { height: 6px; background: #e0e0e0; margin-bottom: 20px; border-radius: 3px; overflow: hidden; display: none; }
-        .progress-bar { width: 0%; height: 100%; background: #1a73e8; transition: width 0.3s; }
+        /* Input Area */
+        .search-area { display: flex; gap: 15px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
+        input[type="text"]:focus { border-color: #1a73e8; }
         
-        .result-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; overflow: hidden; display: none; }
-        .card-header { padding: 12px 15px; font-weight: bold; display: flex; justify-content: space-between; }
-        .card-body { padding: 15px; background: #fafafa; border-top: 1px solid #ddd; }
-        .danger { background: #ffebee; color: #c62828; border-left: 5px solid #c62828; }
-        .safe { background: #e8f5e9; color: #2e7d32; border-left: 5px solid #2e7d32; }
+        button#scanBtn { padding: 15px 40px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 6px rgba(26, 115, 232, 0.2); }
+        button#scanBtn:hover { background-color: #1557b0; transform: translateY(-2px); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
+
+        /* Progress Bar */
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-bar-bg { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { width: 0%; height: 100%; background: #1a73e8; transition: width 0.3s ease; }
+        .status-text { text-align: center; margin-top: 8px; font-size: 14px; color: #555; font-weight: bold; }
+
+        /* Results */
+        #resultsArea { margin-top: 30px; }
+        .result-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; overflow: hidden; animation: slideIn 0.5s ease; background: white; }
+        .card-header { padding: 15px 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; background: #fafafa; border-bottom: 1px solid #eee; }
+        .card-body { padding: 20px; }
+        
+        /* Step Progress (Mini Bar inside cards) */
+        .step-label { font-size: 12px; color: #666; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .mini-progress-bg { width: 100%; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+        .mini-progress-fill { height: 100%; width: 0%; background: #2ecc71; transition: width 0.2s; }
+
+        /* Colors */
+        .danger { border-left: 5px solid #d32f2f; }
+        .danger .card-header { color: #d32f2f; background: #ffebee; }
+        .safe { border-left: 5px solid #2e7d32; }
+        .safe .card-header { color: #2e7d32; background: #e8f5e9; }
+        
         ul { margin: 0; padding-left: 20px; }
-        li { margin-bottom: 5px; word-break: break-all; }
+        li { margin-bottom: 8px; word-break: break-word; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛡️ VulnSpectra Custom Scanner</h1>
+    <h1>🛡️ VulnSpectra Web</h1>
+    <div class="subtitle">Advanced Dual-Engine Vulnerability Scanner</div>
     
     <div class="config-grid">
-        <div class="config-item">
-            <h3>1. Select Scans</h3>
-            <div class="checkbox-group">
-                <label><input type="checkbox" id="checkHeaders" checked> Security Headers</label>
-                <label><input type="checkbox" id="checkPorts" checked> Open Ports</label>
-                <label><input type="checkbox" id="checkSQL" checked> SQL Injection</label>
-                <label><input type="checkbox" id="checkXSS" checked> XSS Vulnerabilities</label>
+        <div class="config-card">
+            <h3>Basic Checks</h3>
+            <div class="vector-item">
+                <label class="vector-label"><input type="checkbox" id="checkHeaders" checked> Security Headers</label>
+            </div>
+            <div class="vector-item">
+                <label class="vector-label"><input type="checkbox" id="checkPorts" checked> Open Ports</label>
             </div>
         </div>
-        <div class="config-item">
-            <h3>2. Custom Payloads (Optional)</h3>
-            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
-                <span id="fileName">📂 Click to Upload .txt File</span>
-                <input type="file" id="fileInput" accept=".txt" style="display: none" onchange="handleFile(this)">
+
+        <div class="config-card">
+            <h3>Payload Attacks</h3>
+            
+            <div class="vector-item">
+                <label class="vector-label"><input type="checkbox" id="checkSQL" checked> SQL Injection</label>
+                <div class="mini-upload-btn" onclick="document.getElementById('sqlFile').click()">
+                    <span id="sqlFileName">📂 Default Payloads</span>
+                </div>
+                <input type="file" id="sqlFile" accept=".txt" style="display: none" onchange="handleFile(this, 'sql')">
             </div>
-            <small style="color: #666; display: block; margin-top: 5px;">Upload a list of payloads to use for SQL & XSS.</small>
+
+            <div class="vector-item">
+                <label class="vector-label"><input type="checkbox" id="checkXSS" checked> XSS / Scripting</label>
+                <div class="mini-upload-btn" onclick="document.getElementById('xssFile').click()">
+                    <span id="xssFileName">📂 Default Payloads</span>
+                </div>
+                <input type="file" id="xssFile" accept=".txt" style="display: none" onchange="handleFile(this, 'xss')">
+            </div>
         </div>
     </div>
 
-    <div class="input-group">
-        <input type="text" id="urlInput" placeholder="Enter target URL (e.g., http://testphp.vulnweb.com)" value="http://testphp.vulnweb.com">
-        <button id="scanBtn" onclick="startScan()">Start Custom Scan</button>
+    <div class="search-area">
+        <input type="text" id="urlInput" placeholder="Enter Target URL (e.g., http://testphp.vulnweb.com)" value="http://testphp.vulnweb.com">
+        <button id="scanBtn" onclick="startScan()">Start Scan</button>
     </div>
 
-    <div id="statusText" style="text-align: center; margin-bottom: 10px; font-weight: bold; color: #555;"></div>
     <div class="progress-container" id="progressContainer">
-        <div class="progress-bar" id="progressBar"></div>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+        <div class="status-text" id="statusText">Initializing...</div>
     </div>
 
     <div id="resultsArea"></div>
 </div>
 
 <script>
-    let customPayloads = [];
+    // Separate variables for each attack type
+    let sqlPayloads = [];
+    let xssPayloads = [];
 
-    // File Reader Logic
-    function handleFile(input) {
+    function handleFile(input, type) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
-            document.getElementById('fileName').innerText = "📄 " + file.name;
-            
             const reader = new FileReader();
+            
             reader.onload = function(e) {
-                // Split file by new lines and remove empty lines
-                customPayloads = e.target.result.split(/\r?\n/).filter(line => line.trim() !== "");
-                alert(`Loaded ${customPayloads.length} custom payloads!`);
+                // Split lines and remove empty strings
+                const lines = e.target.result.split(/\r?\n/).filter(line => line.trim() !== "");
+                
+                if (type === 'sql') {
+                    sqlPayloads = lines;
+                    const btn = document.getElementById('sqlFileName');
+                    btn.innerText = `✅ Loaded (${lines.length})`;
+                    btn.parentElement.classList.add('file-loaded');
+                } else if (type === 'xss') {
+                    xssPayloads = lines;
+                    const btn = document.getElementById('xssFileName');
+                    btn.innerText = `✅ Loaded (${lines.length})`;
+                    btn.parentElement.classList.add('file-loaded');
+                }
             };
             reader.readAsText(file);
         }
@@ -101,59 +155,107 @@
         const url = document.getElementById('urlInput').value;
         if(!url) return alert("Please enter a URL");
 
-        // Reset UI
+        // UI Reset
         document.getElementById('scanBtn').disabled = true;
         document.getElementById('progressContainer').style.display = 'block';
         document.getElementById('resultsArea').innerHTML = '';
-        updateProgress(0, "Starting...");
-
+        updateMainProgress(0, "Initializing...");
+        
         try {
-            // STEP 1: Headers
+            // 1. Headers
             if(document.getElementById('checkHeaders').checked) {
-                updateProgress(20, "Checking Headers...");
-                await runStep('/api/scan/headers', url, "Security Headers", "🔒");
+                updateMainProgress(20, "Checking Security Headers...");
+                await runFastStep('/api/scan/headers', url, "Security Headers", "🔒");
             }
 
-            // STEP 2: Ports
+            // 2. Ports
             if(document.getElementById('checkPorts').checked) {
-                updateProgress(40, "Scanning Ports...");
-                await runStep('/api/scan/ports', url, "Open Ports", "🔌");
+                updateMainProgress(40, "Scanning Ports...");
+                await runFastStep('/api/scan/ports', url, "Open Ports", "🔌");
             }
 
-            // STEP 3: SQL (Passes custom payloads)
+            // 3. SQL Injection (Uses sqlPayloads)
             if(document.getElementById('checkSQL').checked) {
-                updateProgress(60, "Testing SQL Injection...");
-                await runStep('/api/scan/sql', url, "SQL Injection", "💉", customPayloads);
+                const msg = sqlPayloads.length > 0 ? `Testing SQL (${sqlPayloads.length} Custom)...` : "Testing SQL (Default)...";
+                updateMainProgress(60, msg);
+                // Pass sqlPayloads specifically
+                await runStreamedStep('/api/scan/sql', url, "SQL Injection", "💉", sqlPayloads);
             }
 
-            // STEP 4: XSS (Passes custom payloads)
+            // 4. XSS (Uses xssPayloads)
             if(document.getElementById('checkXSS').checked) {
-                updateProgress(80, "Testing XSS...");
-                await runStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀", customPayloads);
+                const msg = xssPayloads.length > 0 ? `Testing XSS (${xssPayloads.length} Custom)...` : "Testing XSS (Default)...";
+                updateMainProgress(80, msg);
+                // Pass xssPayloads specifically
+                await runStreamedStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀", xssPayloads);
             }
 
-            updateProgress(100, "Scan Complete!");
+            updateMainProgress(100, "Scan Complete!");
+            document.getElementById('scanBtn').disabled = false;
+            
         } catch (error) {
             console.error(error);
-            alert("Error during scan.");
+            alert("An error occurred during scanning. Check server logs.");
+            document.getElementById('scanBtn').disabled = false;
         }
-
-        document.getElementById('scanBtn').disabled = false;
     }
 
-    function updateProgress(percent, text) {
+    function updateMainProgress(percent, text) {
         document.getElementById('progressBar').style.width = percent + '%';
         document.getElementById('statusText').innerText = text;
     }
 
-    async function runStep(endpoint, url, title, icon, payloads=[]) {
+    // --- Fast Step Logic (Headers/Ports) ---
+    async function runFastStep(endpoint, url, title, icon) {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        });
+        const data = await response.json();
+        createCard(title, icon, data.results);
+    }
+
+    // --- Streamed Step Logic (SQL/XSS) ---
+    async function runStreamedStep(endpoint, url, title, icon, payloads=[]) {
+        const cardId = 'card-' + Math.random().toString(36).substr(2, 9);
+        createProgressCard(cardId, title, icon);
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({url: url, payloads: payloads})
         });
-        const data = await response.json();
-        createCard(title, icon, data.results);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let findings = [];
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, {stream: true});
+            const lines = chunk.split('\n').filter(line => line.trim() !== "");
+
+            for (const line of lines) {
+                try {
+                    const update = JSON.parse(line);
+                    
+                    if (update.type === 'progress') {
+                        document.getElementById(cardId + '-bar').style.width = update.percent + '%';
+                        document.getElementById(cardId + '-text').innerText = update.percent + '% Checked';
+                    } 
+                    else if (update.type === 'finding') {
+                        findings.push(update.data);
+                        const countSpan = document.getElementById(cardId + '-count');
+                        countSpan.innerText = findings.length + " Issues Found";
+                        countSpan.style.color = "#d32f2f";
+                    }
+                } catch(e) { console.error("Parse error", e); }
+            }
+        }
+        finalizeCard(cardId, findings);
     }
 
     function createCard(title, icon, issues) {
@@ -161,20 +263,45 @@
         const isSafe = issues.length === 0;
         const colorClass = isSafe ? 'safe' : 'danger';
         const statusText = isSafe ? '✅ Safe' : `❌ ${issues.length} Issues Found`;
+        let contentHtml = isSafe ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' : '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        container.innerHTML += `<div class="result-card ${colorClass}"><div class="card-header"><span>${icon} ${title}</span><span>${statusText}</span></div><div class="card-body">${contentHtml}</div></div>`;
+    }
 
-        let listHtml = isSafe 
-            ? '<p style="color:#666; font-style:italic;">No issues detected.</p>'
-            : '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
-
+    function createProgressCard(id, title, icon) {
+        const container = document.getElementById('resultsArea');
         const html = `
-            <div class="result-card ${colorClass}" style="display: block">
+            <div id="${id}" class="result-card" style="border-left: 5px solid #ccc;">
                 <div class="card-header">
                     <span>${icon} ${title}</span>
-                    <span>${statusText}</span>
+                    <span id="${id}-count" style="font-size:12px;">Initializing...</span>
                 </div>
-                <div class="card-body">${listHtml}</div>
+                <div class="card-body">
+                    <div class="step-label">
+                        <span>Scanning Payloads...</span>
+                        <span id="${id}-text">0%</span>
+                    </div>
+                    <div class="mini-progress-bg">
+                        <div id="${id}-bar" class="mini-progress-fill"></div>
+                    </div>
+                    <ul id="${id}-list" style="margin-top:10px; display:none;"></ul>
+                </div>
             </div>`;
         container.innerHTML += html;
+    }
+
+    function finalizeCard(id, findings) {
+        const card = document.getElementById(id);
+        const isSafe = findings.length === 0;
+        card.style.borderLeft = isSafe ? '5px solid #2e7d32' : '5px solid #d32f2f';
+        const header = card.querySelector('.card-header');
+        header.style.background = isSafe ? '#e8f5e9' : '#ffebee';
+        header.style.color = isSafe ? '#2e7d32' : '#d32f2f';
+        document.getElementById(id + '-count').innerText = isSafe ? "✅ Safe" : `❌ ${findings.length} Issues Found`;
+        card.querySelector('.mini-progress-bg').style.display = 'none';
+        card.querySelector('.step-label').style.display = 'none';
+        const list = document.getElementById(id + '-list');
+        list.style.display = 'block';
+        list.innerHTML = isSafe ? '<p style="color:#666; font-style:italic">No vulnerabilities detected.</p>' : findings.map(f => `<li>${f}</li>`).join('');
     }
 </script>
 
