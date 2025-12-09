@@ -4,41 +4,25 @@ from bs4 import BeautifulSoup, Tag
 from urllib.parse import urljoin
 from typing import Optional, List, Dict, Any
 import argparse
+import time
 
 class VulnerabilityScanner:
     def __init__(self, target_url: str, session: Optional[requests.Session] = None):
         self.target_url: str = target_url
         self.session: requests.Session = session or requests.Session()
 
-    def run_scan(self) -> Dict[str, List[str]]:
-        """
-        Runs all checks and returns a DICTIONARY of findings.
-        """
-        print(f"[*] Starting scan on {self.target_url}...")
-        
-        # We collect results in a structured dictionary
-        # This matches what your index.html expects
-        scan_results: Dict[str, List[str]] = {
-            "headers": self.check_security_headers(self.target_url),
-            "sql": self.scan_sql_injection(self.target_url),
-            "xss": self.scan_xss(self.target_url),
-            "ports": self.scan_ports(self.target_url)
-        }
-        
-        return scan_results
-
     def extract_forms(self, url: str) -> List[Tag]:
         try:
-            response: requests.Response = self.session.get(url)
+            response: requests.Response = self.session.get(url, timeout=10)
             soup: BeautifulSoup = BeautifulSoup(response.content, "html.parser")
             return soup.find_all("form")
         except requests.exceptions.RequestException:
             return []
 
     def submit_form(self, form: Tag, value: str, url: str) -> requests.Response:
-        action: str = str(form.get("action")) # Force string to fix type error
+        action: str = str(form.get("action"))
         post_url: str = urljoin(url, action)
-        method: str = str(form.get("method")) # Force string to fix type error
+        method: str = str(form.get("method"))
 
         inputs_list: List[Tag] = form.find_all("input")
         post_data: Dict[str, Any] = {}
@@ -48,6 +32,7 @@ class VulnerabilityScanner:
             input_type: Optional[str] = input_tag.get("type") # type: ignore
             input_val: Optional[str] = input_tag.get("value") # type: ignore
             
+            # Inject payload into all text fields
             if input_type == "text":
                 if input_name:
                     post_data[input_name] = value
@@ -55,53 +40,14 @@ class VulnerabilityScanner:
                 post_data[input_name] = input_val
         
         if method.lower() == "post":
-            return self.session.post(post_url, data=post_data)
-        return self.session.get(post_url, params=post_data)
+            return self.session.post(post_url, data=post_data, timeout=10)
+        return self.session.get(post_url, params=post_data, timeout=10)
 
-    def scan_sql_injection(self, url: str) -> List[str]:
-        findings: List[str] = []  # Explicit type hint fixes "append" error
-        sql_payloads: List[str] = ["'", "\"", "' OR '1'='1"]
-        forms: List[Tag] = self.extract_forms(url)
-        
-        print(f"[+] Scanning {len(forms)} forms for SQL Injection...")
-        for form in forms:
-            for payload in sql_payloads:
-                try:
-                    response = self.submit_form(form, payload, url)
-                    if "You have an error in your SQL syntax" in response.text or \
-                       "mysql_fetch" in response.text:
-                        
-                        # Convert to string to satisfy strict mode
-                        action = str(form.get('action'))
-                        msg = f"Vulnerability in form action: {action} with payload: {payload}"
-                        if msg not in findings:
-                            findings.append(msg)
-                except:
-                    continue
-        return findings
-
-    def scan_xss(self, url: str) -> List[str]:
-        findings: List[str] = [] # Explicit type hint fixes "append" error
-        xss_payload: str = "<script>alert('XSS')</script>"
-        forms: List[Tag] = self.extract_forms(url)
-        
-        print(f"[+] Scanning {len(forms)} forms for XSS...")
-        for form in forms:
-            try:
-                response = self.submit_form(form, xss_payload, url)
-                if xss_payload in response.content.decode():
-                    action = str(form.get('action'))
-                    msg = f"XSS found in form action: {action}"
-                    if msg not in findings:
-                        findings.append(msg)
-            except:
-                continue
-        return findings
-
-    def check_security_headers(self, url: str) -> List[str]:
+    # --- Step 1: Headers ---
+    def check_security_headers(self) -> List[str]:
         findings: List[str] = []
         try:
-            response = self.session.get(url)
+            response = self.session.get(self.target_url, timeout=5)
             headers = response.headers
             required_headers = ["X-Frame-Options", "X-XSS-Protection", "Content-Security-Policy"]
             
@@ -112,17 +58,16 @@ class VulnerabilityScanner:
             findings.append("Could not fetch headers (Connection Error)")
         return findings
 
-    def scan_ports(self, url: str) -> List[str]:
+    # --- Step 2: Ports ---
+    def scan_ports(self) -> List[str]:
         findings: List[str] = []
-        # Extract hostname safely
-        hostname = url.replace("http://", "").replace("https://", "").split("/")[0]
+        hostname = self.target_url.replace("http://", "").replace("https://", "").split("/")[0]
         ports = [21, 22, 80, 443, 3306]
         
-        print(f"[+] Scanning ports for {hostname}...")
         for port in ports:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1)
+                sock.settimeout(0.5) 
                 result = sock.connect_ex((hostname, port))
                 if result == 0:
                     findings.append(f"Port {port} is OPEN")
@@ -131,24 +76,92 @@ class VulnerabilityScanner:
                 pass
         return findings
 
-# CLI Execution
+    # --- Step 3: SQL Injection ---
+    def scan_sql_injection(self) -> List[str]:
+        findings: List[str] = []
+        # Added specific payloads to test
+        sql_payloads: List[str] = ["'", "' OR '1'='1"]
+        forms: List[Tag] = self.extract_forms(self.target_url)
+        
+        for form in forms:
+            for payload in sql_payloads:
+                try:
+                    response = self.submit_form(form, payload, self.target_url)
+                    if "You have an error in your SQL syntax" in response.text or \
+                       "mysql_fetch" in response.text:
+                        action = str(form.get('action'))
+                        
+                        # UPDATED: Now includes the payload in the result
+                        msg = f"Vulnerable Form: {action} | PAYLOAD: {payload}"
+                        
+                        if msg not in findings:
+                            findings.append(msg)
+                except:
+                    continue
+        return findings
+
+    # --- Step 4: XSS ---
+    def scan_xss(self) -> List[str]:
+        findings: List[str] = []
+        xss_payload: str = "<script>alert('XSS')</script>"
+        forms: List[Tag] = self.extract_forms(self.target_url)
+        
+        for form in forms:
+            try:
+                response = self.submit_form(form, xss_payload, self.target_url)
+                if xss_payload in response.content.decode():
+                    action = str(form.get('action'))
+                    
+                    # UPDATED: Now includes the payload in the result
+                    msg = f"XSS Found in: {action} | PAYLOAD: {xss_payload}"
+                    
+                    if msg not in findings:
+                        findings.append(msg)
+            except:
+                continue
+        return findings
+
+# ==========================================
+#  CLI WITH PROGRESS BAR
+# ==========================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="VulnSpectra CLI")
     parser.add_argument("url", help="Target URL")
     args = parser.parse_args()
 
     scanner = VulnerabilityScanner(args.url)
-    results = scanner.run_scan()
+    
+    steps = [
+        ("Checking Security Headers...", scanner.check_security_headers),
+        ("Scanning Open Ports...", scanner.scan_ports),
+        ("Testing SQL Injection...", scanner.scan_sql_injection),
+        ("Testing XSS Vulnerabilities...", scanner.scan_xss)
+    ]
+    
+    print(f"\n[*] Starting Scan on: {args.url}\n")
+    
+    all_findings = {}
+    total_steps = len(steps)
+    
+    for i, (msg, func) in enumerate(steps, 1):
+        percent = int((i / total_steps) * 100)
+        bar = '█' * (percent // 5) + '-' * ((100 - percent) // 5)
+        print(f"\r[{bar}] {percent}% | {msg}", end="", flush=True)
+        
+        result = func()
+        if result:
+            all_findings[msg] = result
+        time.sleep(0.5)
 
-    print("\n" + "="*40)
-    print(" SCAN REPORT")
+    print("\n\n" + "="*40)
+    print(" SCAN COMPLETED ")
     print("="*40)
-    
-    # Iterate through the dictionary keys to print results
-    for category, findings in results.items():
-        if findings:
-            print(f"\n[{category.upper()}] Found {len(findings)} issues:")
-            for issue in findings:
-                print(f" - {issue}")
-    
-    print("\n" + "="*40 + "\n")
+
+    if not all_findings:
+        print("✅ No critical vulnerabilities found.")
+    else:
+        for category, issues in all_findings.items():
+            print(f"\n❌ {category.replace('...', '')}:")
+            for issue in issues:
+                print(f"   - {issue}")
+    print("\n")

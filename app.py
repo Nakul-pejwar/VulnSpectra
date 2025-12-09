@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from scanner import VulnerabilityScanner
 
 app = Flask(__name__)
@@ -7,25 +7,39 @@ app = Flask(__name__)
 def home():
     return render_template('index.html')
 
-@app.route('/scan', methods=['POST'])
-def scan():
-    # Fix: Default to empty string '' to prevent "None" type error
-    target_url = request.form.get('url', '')
-    
-    # If the user didn't type anything, just reload the page
-    if not target_url:
-        return render_template('index.html', error="Please enter a valid URL.")
+# --- API ENDPOINTS FOR STEPS ---
 
-    # Initialize scanner
-    scanner = VulnerabilityScanner(target_url)
-    
-    # Get the dictionary result
-    scan_results = scanner.run_scan()
-    
-    # Pass results to the template
-    return render_template('index.html', 
-                           target_url=target_url,
-                           scan_results=scan_results)
+@app.route('/api/scan/headers', methods=['POST'])
+def scan_headers_api():
+    data = request.json
+    url = data.get('url', '') # type: ignore
+    scanner = VulnerabilityScanner(url)
+    results = scanner.check_security_headers()
+    return jsonify(results=results)
+
+@app.route('/api/scan/ports', methods=['POST'])
+def scan_ports_api():
+    data = request.json
+    url = data.get('url', '') # type: ignore
+    scanner = VulnerabilityScanner(url)
+    results = scanner.scan_ports()
+    return jsonify(results=results)
+
+@app.route('/api/scan/sql', methods=['POST'])
+def scan_sql_api():
+    data = request.json
+    url = data.get('url', '') # type: ignore
+    scanner = VulnerabilityScanner(url)
+    results = scanner.scan_sql_injection()
+    return jsonify(results=results)
+
+@app.route('/api/scan/xss', methods=['POST'])
+def scan_xss_api():
+    data = request.json
+    url = data.get('url', '') # type: ignore
+    scanner = VulnerabilityScanner(url)
+    results = scanner.scan_xss()
+    return jsonify(results=results)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -3,119 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VulnSpectra Scanner</title>
+    <title>VulnSpectra Pro</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; }
-        .search-box { display: flex; gap: 10px; margin-bottom: 30px; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        button { padding: 12px 25px; background-color: #3498db; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: 0.3s; }
-        button:hover { background-color: #2980b9; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; }
         
-        /* Result Cards */
-        .card { margin-bottom: 20px; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; }
-        .card-header { padding: 15px; font-weight: bold; display: flex; align-items: center; justify-content: space-between; }
-        .card-body { padding: 15px; background-color: #fafafa; border-top: 1px solid #e1e1e1; }
-        
-        /* Status Colors */
-        .safe { background-color: #e8f5e9; color: #2e7d32; }
+        /* Input Area */
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; outline: none; transition: 0.3s; }
+        input:focus { border-color: #1a73e8; }
+        button { padding: 12px 30px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Progress Bar */
+        .progress-container { width: 100%; background-color: #e0e0e0; border-radius: 8px; margin-bottom: 30px; display: none; overflow: hidden; }
+        .progress-bar { width: 0%; height: 20px; background-color: #4caf50; transition: width 0.5s ease; text-align: center; color: white; font-size: 12px; line-height: 20px; }
+        .status-text { text-align: center; margin-bottom: 15px; font-weight: bold; color: #555; height: 20px; }
+
+        /* Results */
+        .result-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; overflow: hidden; opacity: 0; transform: translateY(10px); transition: 0.5s; display: none; }
+        .card-header { padding: 12px 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .card-body { padding: 15px; background-color: #fafafa; border-top: 1px solid #ddd; }
         .danger { background-color: #ffebee; color: #c62828; }
-        .warning { background-color: #fff3e0; color: #ef6c00; }
-        
+        .safe { background-color: #e8f5e9; color: #2e7d32; }
         ul { margin: 0; padding-left: 20px; }
         li { margin-bottom: 5px; }
-        .empty-msg { font-style: italic; color: #777; }
+
+        /* Animation class */
+        .show { opacity: 1; transform: translateY(0); display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛡️ VulnSpectra Scanner</h1>
+    <h1>🛡️ VulnSpectra Live Scanner</h1>
     
-    <form action="/scan" method="POST" class="search-box">
-        <input type="text" name="url" placeholder="Enter URL (e.g., http://testphp.vulnweb.com)" value="{{ target_url }}" required>
-        <button type="submit">Scan Target</button>
-    </form>
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="Enter target URL (e.g., http://testphp.vulnweb.com)" value="http://testphp.vulnweb.com">
+        <button id="scanBtn" onclick="startScan()">Start Scan</button>
+    </div>
 
-    {% if scan_results %}
-        <div class="card">
-            <div class="card-header {% if scan_results.headers %}warning{% else %}safe{% endif %}">
-                <span>🔒 Security Headers</span>
-                <span>{% if scan_results.headers %}⚠️ Issues Found{% else %}✅ Safe{% endif %}</span>
-            </div>
-            <div class="card-body">
-                {% if scan_results.headers %}
-                    <ul>
-                        {% for issue in scan_results.headers %}
-                            <li>{{ issue }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="empty-msg">All major security headers are present.</p>
-                {% endif %}
-            </div>
-        </div>
+    <div id="statusText" class="status-text"></div>
+    
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar">0%</div>
+    </div>
 
-        <div class="card">
-            <div class="card-header {% if scan_results.ports %}warning{% else %}safe{% endif %}">
-                <span>🔌 Open Ports</span>
-                <span>Found: {{ scan_results.ports|length }}</span>
-            </div>
-            <div class="card-body">
-                {% if scan_results.ports %}
-                    <ul>
-                        {% for port in scan_results.ports %}
-                            <li>{{ port }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="empty-msg">No common open ports detected.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header {% if scan_results.sql %}danger{% else %}safe{% endif %}">
-                <span>💉 SQL Injection</span>
-                <span>{% if scan_results.sql %}❌ VULNERABLE{% else %}✅ Safe{% endif %}</span>
-            </div>
-            <div class="card-body">
-                {% if scan_results.sql %}
-                    <ul>
-                        {% for vuln in scan_results.sql %}
-                            <li>{{ vuln }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="empty-msg">No SQL Injection vulnerabilities detected.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header {% if scan_results.xss %}danger{% else %}safe{% endif %}">
-                <span>💀 XSS Vulnerabilities</span>
-                <span>{% if scan_results.xss %}❌ VULNERABLE{% else %}✅ Safe{% endif %}</span>
-            </div>
-            <div class="card-body">
-                {% if scan_results.xss %}
-                    <ul>
-                        {% for vuln in scan_results.xss %}
-                            <li>{{ vuln }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="empty-msg">No XSS vulnerabilities detected.</p>
-                {% endif %}
-            </div>
-        </div>
-    {% endif %}
-
-    {% if error %}
-        <div style="color: red; text-align: center; margin-top: 20px;">{{ error }}</div>
-    {% endif %}
+    <div id="resultsArea"></div>
 </div>
+
+<script>
+    async function startScan() {
+        const url = document.getElementById('urlInput').value;
+        if(!url) return alert("Please enter a URL");
+
+        // Reset UI
+        document.getElementById('scanBtn').disabled = true;
+        document.getElementById('progressContainer').style.display = 'block';
+        document.getElementById('resultsArea').innerHTML = '';
+        updateProgress(0, "Starting...");
+
+        try {
+            // Step 1: Headers
+            updateProgress(10, "Checking Security Headers...");
+            await runStep('/api/scan/headers', url, "Security Headers", "🔒");
+            
+            // Step 2: Ports
+            updateProgress(40, "Scanning Open Ports...");
+            await runStep('/api/scan/ports', url, "Open Ports", "🔌");
+            
+            // Step 3: SQL
+            updateProgress(70, "Testing SQL Injection...");
+            await runStep('/api/scan/sql', url, "SQL Injection", "💉");
+            
+            // Step 4: XSS
+            updateProgress(90, "Testing XSS Vulnerabilities...");
+            await runStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀");
+
+            updateProgress(100, "Scan Complete!");
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred during scanning.");
+        }
+
+        document.getElementById('scanBtn').disabled = false;
+    }
+
+    function updateProgress(percent, text) {
+        const bar = document.getElementById('progressBar');
+        bar.style.width = percent + '%';
+        bar.innerText = percent + '%';
+        document.getElementById('statusText').innerText = text;
+    }
+
+    async function runStep(endpoint, url, title, icon) {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        });
+        const data = await response.json();
+        createCard(title, icon, data.results);
+    }
+
+    function createCard(title, icon, issues) {
+        const container = document.getElementById('resultsArea');
+        const isSafe = issues.length === 0;
+        const colorClass = isSafe ? 'safe' : 'danger';
+        const statusText = isSafe ? '✅ Safe / No Issues' : `❌ ${issues.length} Issues Found`;
+
+        let listHtml = '';
+        if (issues.length > 0) {
+            listHtml = '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        } else {
+            listHtml = '<p style="color:#666; font-style:italic;">No vulnerabilities detected in this category.</p>';
+        }
+
+        const html = `
+            <div class="result-card show ${colorClass}" style="border-left: 5px solid ${isSafe ? '#2e7d32' : '#c62828'}">
+                <div class="card-header">
+                    <span>${icon} ${title}</span>
+                    <span>${statusText}</span>
+                </div>
+                <div class="card-body">
+                    ${listHtml}
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML += html;
+    }
+</script>
 
 </body>
 </html>
