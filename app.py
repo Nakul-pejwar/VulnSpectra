@@ -7,8 +7,6 @@ app = Flask(__name__)
 def home():
     return render_template('index.html')
 
-# --- API ENDPOINTS FOR STEPS ---
-
 @app.route('/api/scan/headers', methods=['POST'])
 def scan_headers_api():
     data = request.json
@@ -29,16 +27,18 @@ def scan_ports_api():
 def scan_sql_api():
     data = request.json
     url = data.get('url', '') # type: ignore
+    payloads = data.get('payloads', []) # type: ignore
     scanner = VulnerabilityScanner(url)
-    results = scanner.scan_sql_injection()
+    results = scanner.scan_sql_injection(payloads)
     return jsonify(results=results)
 
 @app.route('/api/scan/xss', methods=['POST'])
 def scan_xss_api():
     data = request.json
     url = data.get('url', '') # type: ignore
+    payloads = data.get('payloads', []) # type: ignore
     scanner = VulnerabilityScanner(url)
-    results = scanner.scan_xss()
+    results = scanner.scan_xss(payloads)
     return jsonify(results=results)
 
 if __name__ == '__main__':

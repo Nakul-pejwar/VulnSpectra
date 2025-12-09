@@ -5,55 +5,98 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VulnSpectra Pro</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #1a73e8; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 25px; }
+
+        /* Configuration Grid */
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e1e1; }
+        .config-item h3 { margin: 0 0 10px 0; font-size: 16px; color: #555; }
         
-        /* Input Area */
+        /* Checkboxes */
+        .checkbox-group label { display: block; margin-bottom: 8px; cursor: pointer; }
+        .checkbox-group input { margin-right: 10px; }
+
+        /* File Upload */
+        .file-upload { border: 2px dashed #ddd; padding: 15px; text-align: center; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        .file-upload:hover { border-color: #1a73e8; background: #e8f0fe; }
+        
+        /* Main Input */
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #1a73e8; }
-        button { padding: 12px 30px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        input[type="text"] { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; outline: none; }
+        button#scanBtn { padding: 12px 30px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
 
-        /* Progress Bar */
-        .progress-container { width: 100%; background-color: #e0e0e0; border-radius: 8px; margin-bottom: 30px; display: none; overflow: hidden; }
-        .progress-bar { width: 0%; height: 20px; background-color: #4caf50; transition: width 0.5s ease; text-align: center; color: white; font-size: 12px; line-height: 20px; }
-        .status-text { text-align: center; margin-bottom: 15px; font-weight: bold; color: #555; height: 20px; }
-
-        /* Results */
-        .result-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; overflow: hidden; opacity: 0; transform: translateY(10px); transition: 0.5s; display: none; }
-        .card-header { padding: 12px 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .card-body { padding: 15px; background-color: #fafafa; border-top: 1px solid #ddd; }
-        .danger { background-color: #ffebee; color: #c62828; }
-        .safe { background-color: #e8f5e9; color: #2e7d32; }
+        /* Progress & Results */
+        .progress-container { height: 6px; background: #e0e0e0; margin-bottom: 20px; border-radius: 3px; overflow: hidden; display: none; }
+        .progress-bar { width: 0%; height: 100%; background: #1a73e8; transition: width 0.3s; }
+        
+        .result-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; overflow: hidden; display: none; }
+        .card-header { padding: 12px 15px; font-weight: bold; display: flex; justify-content: space-between; }
+        .card-body { padding: 15px; background: #fafafa; border-top: 1px solid #ddd; }
+        .danger { background: #ffebee; color: #c62828; border-left: 5px solid #c62828; }
+        .safe { background: #e8f5e9; color: #2e7d32; border-left: 5px solid #2e7d32; }
         ul { margin: 0; padding-left: 20px; }
-        li { margin-bottom: 5px; }
-
-        /* Animation class */
-        .show { opacity: 1; transform: translateY(0); display: block; }
+        li { margin-bottom: 5px; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛡️ VulnSpectra Live Scanner</h1>
+    <h1>🛡️ VulnSpectra Custom Scanner</h1>
     
-    <div class="input-group">
-        <input type="text" id="urlInput" placeholder="Enter target URL (e.g., http://testphp.vulnweb.com)" value="http://testphp.vulnweb.com">
-        <button id="scanBtn" onclick="startScan()">Start Scan</button>
+    <div class="config-grid">
+        <div class="config-item">
+            <h3>1. Select Scans</h3>
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="checkHeaders" checked> Security Headers</label>
+                <label><input type="checkbox" id="checkPorts" checked> Open Ports</label>
+                <label><input type="checkbox" id="checkSQL" checked> SQL Injection</label>
+                <label><input type="checkbox" id="checkXSS" checked> XSS Vulnerabilities</label>
+            </div>
+        </div>
+        <div class="config-item">
+            <h3>2. Custom Payloads (Optional)</h3>
+            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                <span id="fileName">📂 Click to Upload .txt File</span>
+                <input type="file" id="fileInput" accept=".txt" style="display: none" onchange="handleFile(this)">
+            </div>
+            <small style="color: #666; display: block; margin-top: 5px;">Upload a list of payloads to use for SQL & XSS.</small>
+        </div>
     </div>
 
-    <div id="statusText" class="status-text"></div>
-    
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="Enter target URL (e.g., http://testphp.vulnweb.com)" value="http://testphp.vulnweb.com">
+        <button id="scanBtn" onclick="startScan()">Start Custom Scan</button>
+    </div>
+
+    <div id="statusText" style="text-align: center; margin-bottom: 10px; font-weight: bold; color: #555;"></div>
     <div class="progress-container" id="progressContainer">
-        <div class="progress-bar" id="progressBar">0%</div>
+        <div class="progress-bar" id="progressBar"></div>
     </div>
 
     <div id="resultsArea"></div>
 </div>
 
 <script>
+    let customPayloads = [];
+
+    // File Reader Logic
+    function handleFile(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            document.getElementById('fileName').innerText = "📄 " + file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Split file by new lines and remove empty lines
+                customPayloads = e.target.result.split(/\r?\n/).filter(line => line.trim() !== "");
+                alert(`Loaded ${customPayloads.length} custom payloads!`);
+            };
+            reader.readAsText(file);
+        }
+    }
+
     async function startScan() {
         const url = document.getElementById('urlInput').value;
         if(!url) return alert("Please enter a URL");
@@ -65,43 +108,49 @@
         updateProgress(0, "Starting...");
 
         try {
-            // Step 1: Headers
-            updateProgress(10, "Checking Security Headers...");
-            await runStep('/api/scan/headers', url, "Security Headers", "🔒");
-            
-            // Step 2: Ports
-            updateProgress(40, "Scanning Open Ports...");
-            await runStep('/api/scan/ports', url, "Open Ports", "🔌");
-            
-            // Step 3: SQL
-            updateProgress(70, "Testing SQL Injection...");
-            await runStep('/api/scan/sql', url, "SQL Injection", "💉");
-            
-            // Step 4: XSS
-            updateProgress(90, "Testing XSS Vulnerabilities...");
-            await runStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀");
+            // STEP 1: Headers
+            if(document.getElementById('checkHeaders').checked) {
+                updateProgress(20, "Checking Headers...");
+                await runStep('/api/scan/headers', url, "Security Headers", "🔒");
+            }
+
+            // STEP 2: Ports
+            if(document.getElementById('checkPorts').checked) {
+                updateProgress(40, "Scanning Ports...");
+                await runStep('/api/scan/ports', url, "Open Ports", "🔌");
+            }
+
+            // STEP 3: SQL (Passes custom payloads)
+            if(document.getElementById('checkSQL').checked) {
+                updateProgress(60, "Testing SQL Injection...");
+                await runStep('/api/scan/sql', url, "SQL Injection", "💉", customPayloads);
+            }
+
+            // STEP 4: XSS (Passes custom payloads)
+            if(document.getElementById('checkXSS').checked) {
+                updateProgress(80, "Testing XSS...");
+                await runStep('/api/scan/xss', url, "XSS Vulnerabilities", "💀", customPayloads);
+            }
 
             updateProgress(100, "Scan Complete!");
         } catch (error) {
             console.error(error);
-            alert("An error occurred during scanning.");
+            alert("Error during scan.");
         }
 
         document.getElementById('scanBtn').disabled = false;
     }
 
     function updateProgress(percent, text) {
-        const bar = document.getElementById('progressBar');
-        bar.style.width = percent + '%';
-        bar.innerText = percent + '%';
+        document.getElementById('progressBar').style.width = percent + '%';
         document.getElementById('statusText').innerText = text;
     }
 
-    async function runStep(endpoint, url, title, icon) {
+    async function runStep(endpoint, url, title, icon, payloads=[]) {
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: url})
+            body: JSON.stringify({url: url, payloads: payloads})
         });
         const data = await response.json();
         createCard(title, icon, data.results);
@@ -111,27 +160,20 @@
         const container = document.getElementById('resultsArea');
         const isSafe = issues.length === 0;
         const colorClass = isSafe ? 'safe' : 'danger';
-        const statusText = isSafe ? '✅ Safe / No Issues' : `❌ ${issues.length} Issues Found`;
+        const statusText = isSafe ? '✅ Safe' : `❌ ${issues.length} Issues Found`;
 
-        let listHtml = '';
-        if (issues.length > 0) {
-            listHtml = '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
-        } else {
-            listHtml = '<p style="color:#666; font-style:italic;">No vulnerabilities detected in this category.</p>';
-        }
+        let listHtml = isSafe 
+            ? '<p style="color:#666; font-style:italic;">No issues detected.</p>'
+            : '<ul>' + issues.map(i => `<li>${i}</li>`).join('') + '</ul>';
 
         const html = `
-            <div class="result-card show ${colorClass}" style="border-left: 5px solid ${isSafe ? '#2e7d32' : '#c62828'}">
+            <div class="result-card ${colorClass}" style="display: block">
                 <div class="card-header">
                     <span>${icon} ${title}</span>
                     <span>${statusText}</span>
                 </div>
-                <div class="card-body">
-                    ${listHtml}
-                </div>
-            </div>
-        `;
-        
+                <div class="card-body">${listHtml}</div>
+            </div>`;
         container.innerHTML += html;
     }
 </script>
