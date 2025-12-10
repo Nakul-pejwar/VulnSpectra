@@ -113,10 +113,10 @@ vulnspectra/
 ```
 ### 📸 Screenshots
 ### Web Dashboard
-<img width="1366" height="624" alt="Screenshot From 2025-12-09 21-17-06" src="https://github.com/user-attachments/assets/a2c2099c-3e68-49a5-b3c0-beaa0be80c30" />
+https://github.com/user-attachments/assets/fe83ac17-42f8-40f0-917d-42c5b26bb955
 
 ### Interactive CLI
-<img width="1366" height="733" alt="Screenshot From 2025-12-09 21-37-42" src="https://github.com/user-attachments/assets/8e1e5379-12ae-42cd-99f2-0d8f7994e6d5" />
+https://github.com/user-attachments/assets/d9adbcf7-2d19-4a64-b1d7-611da28596d9
 
 ### ⚠️ Disclaimer
 
