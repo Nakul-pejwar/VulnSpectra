@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🛡️ VulnSpectra Pro
-### Advanced Dual-Engine Web Vulnerability Scanner
+### Dual-Engine Web Vulnerability Scanner
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-Web_Interface-green?style=for-the-badge&logo=flask&logoColor=white)
@@ -9,11 +9,12 @@
 ![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
 
 <p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-project-structure">Structure</a> •
-  <a href="#-disclaimer">Disclaimer</a>
+  <a href="#overview">Overview</a> •
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#project-structure">Structure</a> •
+  <a href="#disclaimer">Disclaimer</a>
 </p>
 
 </div>
@@ -22,118 +23,100 @@
 
 ## 📖 Overview
 
-**VulnSpectra** is a high-performance, multi-threaded penetration testing tool designed to detect common web vulnerabilities. It features a unique **Dual-Engine Architecture**, allowing users to operate via a robust **Interactive CLI** (inspired by tools like Loxs) or a modern **Web Dashboard** with real-time streaming results.
+**VulnSpectra** is a Python web vulnerability scanner that combines a Flask-based dashboard and an interactive terminal interface. It scans target websites for missing security headers, open ports, SQL injection, and reflected XSS by parsing HTML forms, submitting payloads, and analyzing responses.
 
-Built for speed and accuracy, VulnSpectra uses thread pooling to execute thousands of payload tests in seconds without freezing the user interface.
+The project is centered on `scanner.py` for scan logic and form handling, while `app.py` exposes API endpoints used by the web frontend. Multithreading is used to speed up payload testing, and the web UI streams scan progress back to the browser.
 
 ## 🚀 Features
 
-### 🔥 Core Engines
-* **Interactive CLI:** Beautiful ASCII-art interface using `Rich` and `Colorama`.
-* **Web Dashboard:** Modern, responsive UI with real-time progress bars using Flask & Streaming API.
+### 🔥 Dual Engines
+* **Interactive CLI** — terminal scanner with a menu-driven interface, progress bars, and summaries.
+* **Web Dashboard** — Flask app with JSON APIs and real-time scan streaming.
 
-### ⚡ Performance & Capabilities
-* **Multi-Threaded Scanning:** Spawns 10+ concurrent threads to process payloads 10x faster.
-* **Real-Time Streaming:** Feedback is streamed instantly (Server-Sent Events style) via Generators; no waiting for the full scan to finish.
-* **Dual Payload System:** Separate file uploaders for **SQL Injection** and **XSS**, preventing payload overlap.
-* **Safety First:** Results are sanitized to prevent Self-XSS execution in the dashboard.
+### ⚡ Core Capabilities
+* **Form-based scanning** for SQL injection and reflected XSS.
+* **Security header checks** for `X-Frame-Options`, `X-XSS-Protection`, and `Content-Security-Policy`.
+* **Common port probing** on ports `21`, `22`, `80`, `443`, and `3306`.
+* **Custom payload support** by loading SQL or XSS payload files.
+* **Threaded scanning** using a thread pool to keep scans fast and responsive.
 
-### 🎯 Attack Vectors
-| Icon | Vector | Description |
-| :---: | :--- | :--- |
-| 🔒 | **Security Headers** | Checks for missing X-Frame-Options, CSP, HSTS, etc. |
-| 🔌 | **Port Scanning** | Checks status of common ports (21, 22, 80, 443, 3306). |
-| 💉 | **SQL Injection** | Fuzzes forms with error-based SQL payloads. |
-| 💀 | **Cross-Site Scripting** | Tests inputs for Reflected XSS vulnerabilities. |
+### 🎯 What the Scanner Does
+* Loads forms from a target URL using `BeautifulSoup`.
+* Builds form submission data and submits payloads via `requests`.
+* Detects SQL injection by searching responses for database error signatures.
+* Detects reflected XSS when payload content appears in the returned HTML.
+* Streams SQL and XSS scan updates from the backend to the frontend.
 
 ---
 
 ## 🛠️ Installation
 
-1.  **Clone the Repository**
+1.  **Clone the repository**
     ```bash
     git clone https://github.com/Nakul-pejwar/VulnSpectra.git
-    cd vulnspectra
+    cd VulnSpectra
     ```
 
-2.  **Install Dependencies**
+2.  **Install dependencies**
     ```bash
     pip install -r requirements.txt
     ```
 
-    > **Note:** Ensure your `requirements.txt` includes: `requests`, `beautifulsoup4`, `flask`, `colorama`, `rich`.
+> Recommended dependencies: `requests`, `beautifulsoup4`, `flask`, `colorama`, `rich`.
 
 ---
 
 ## 💻 Usage
 
-### Option 1: The Web Interface (GUI)
-Run the Flask server to use the graphical dashboard with file uploads and progress bars.
+### Option 1: Web Dashboard
+Start the Flask server:
 
 ```bash
 python app.py
-
-Open your browser to: http://127.0.0.1:5000
-
-Enter the target URL.
-
-(Optional) Upload custom .txt payload files for SQL or XSS.
-
-Click Start Scan.
 ```
 
-### Option 2: The Interactive CLI
-Run the terminal version for a hacker-style experience.
+Then open `http://127.0.0.1:5000` in your browser. Enter a target URL, choose a scan type, and optionally upload a SQL or XSS payload file.
 
-```Bash
-
-python scanner.py
-
-Follow the interactive prompts.
-
-Select attack vectors using the menu (1-5).
-
-Load custom payloads when prompted.
-
-```
-
-### 📂 Project Structure
+### Option 2: Interactive CLI
+Run the terminal scanner:
 
 ```bash
-vulnspectra/
-├── app.py                # Flask Web Server (Backend)
-├── scanner.py            # Core Logic (Engine + CLI)
-├── requirements.txt      # Python Dependencies
-├── README.md             # Documentation
-├── payloads/             # (Optional) Folder for default wordlists
+python scanner.py
+```
+
+Follow the prompts to enter a target URL, choose a scan vector, and optionally load custom payloads.
+
+### Supported Scan Types
+* **Security Headers** — checks for missing headers.
+* **Port Scan** — probes common service ports.
+* **SQL Injection** — fuzzes HTML forms with SQL payloads.
+* **XSS** — tests forms for reflected cross-site scripting.
+
+---
+
+## 📂 Project Structure
+
+```bash
+VulnSpectra/
+├── app.py                # Flask web server and API endpoints
+├── scanner.py            # Core scanning engine and CLI logic
+├── requirements.txt      # Python dependencies
+├── README.md             # Project documentation
+├── payloads/             # Default payload wordlists
 │   ├── sql.txt
 │   └── xss.txt
 └── templates/
-    └── index.html        # Web Dashboard Frontend
+    └── index.html        # Web dashboard frontend
 ```
-### 📸 Screenshots
-### Web Dashboard
-https://github.com/user-attachments/assets/fe83ac17-42f8-40f0-917d-42c5b26bb955
 
-### Interactive CLI
-https://github.com/user-attachments/assets/d9adbcf7-2d19-4a64-b1d7-611da28596d9
+---
 
-### ⚠️ Disclaimer
+## ⚠️ Disclaimer
 
-This tool is developed for educational purposes and ethical security testing only. 
-The developer is not responsible for any misuse or damage caused by this tool. 
-Only scan targets you own or have explicit permission to test.
-🤝 Contributing
-Contributions are welcome! Please fork the repository and submit a pull request.
+This tool is intended for educational and authorized security testing only. Do not use it against systems without permission. The author is not responsible for misuse or any damage caused by unauthorized scanning.
 
-Fork the Project
+## 🤝 Contributing
 
-Create your Feature Branch (git checkout -b feature/AmazingFeature)
-
-Commit your Changes (git commit -m 'Add some AmazingFeature')
-
-Push to the Branch (git push origin feature/AmazingFeature)
-
-Open a Pull Request
+Contributions are welcome. Fork the repository, create a feature branch, and submit a pull request.
 
 <div align="center"> <sub>Built with ❤️ using Python, Flask, and BeautifulSoup</sub> </div>

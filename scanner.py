@@ -32,49 +32,79 @@ class VulnerabilityScanner:
         except requests.exceptions.RequestException:
             return []
 
+    def _normalize_text(self, text: Optional[str]) -> str:
+        return text.lower() if isinstance(text, str) else ""
+
+    def _build_form_data(self, form: Tag, payload: str) -> Dict[str, Any]:
+        inputs_list: List[Tag] = form.find_all(["input", "textarea", "select"])
+        post_data: Dict[str, Any] = {}
+
+        for input_tag in inputs_list:
+            input_name: Optional[str] = input_tag.get("name") # type: ignore
+            if not input_name:
+                continue
+
+            input_type: Optional[str] = self._normalize_text(input_tag.get("type"))
+            input_val: Optional[str] = input_tag.get("value") or ""
+
+            if input_type in {"text", "search", "email", "url", "tel", "number", "search"}:
+                post_data[input_name] = payload
+            elif input_tag.name == "textarea":
+                post_data[input_name] = payload
+            elif input_tag.name == "select":
+                # Attempt to keep existing values for selects
+                post_data[input_name] = input_tag.get("value") or ""
+            else:
+                post_data[input_name] = input_val
+
+        return post_data
+
     def submit_form(self, form: Tag, value: str, url: str) -> requests.Response:
         action: str = str(form.get("action"))
         post_url: str = urljoin(url, action)
-        method: str = str(form.get("method"))
+        method: str = self._normalize_text(form.get("method")) or "get"
+        post_data: Dict[str, Any] = self._build_form_data(form, value)
 
-        inputs_list: List[Tag] = form.find_all("input")
-        post_data: Dict[str, Any] = {}
-        
-        for input_tag in inputs_list:
-            input_name: Optional[str] = input_tag.get("name") # type: ignore
-            input_type: Optional[str] = input_tag.get("type") # type: ignore
-            input_val: Optional[str] = input_tag.get("value") # type: ignore
-            
-            if input_type == "text":
-                if input_name:
-                    post_data[input_name] = value
-            elif input_name:
-                post_data[input_name] = input_val
-        
         try:
-            if method.lower() == "post":
+            if method == "post":
                 return self.session.post(post_url, data=post_data, timeout=5)
             return self.session.get(post_url, params=post_data, timeout=5)
         except requests.exceptions.RequestException:
-            # Return a dummy object if connection fails to keep threads alive
             dummy = requests.Response()
             dummy.status_code = 0
+            dummy._content = b""
             return dummy
 
     # --- HELPER: Single Payload Check (Runs in a Thread) ---
-    def _test_sql_payload(self, form: Tag, payload: str) -> Optional[str]:
+    def _test_sql_payload(self, form: Tag, payload: str, baseline_text: str) -> Optional[str]:
         response = self.submit_form(form, payload, self.target_url)
-        if "You have an error in your SQL syntax" in response.text or \
-           "mysql_fetch" in response.text:
+        response_text = self._normalize_text(response.text)
+        baseline_lower = self._normalize_text(baseline_text)
+
+        sql_signatures = [
+            "you have an error in your sql syntax",
+            "mysql_fetch",
+            "sql syntax",
+            "warning: mysql",
+            "unclosed quotation mark after the character string",
+            "quoted string not properly terminated",
+            "syntax error in query"
+        ]
+
+        # Only report if an SQL error appears and it was not already present in the baseline response.
+        if any(sig in response_text for sig in sql_signatures) and not any(sig in baseline_lower for sig in sql_signatures):
             action = str(form.get('action'))
             return f"Vulnerable Form: {action} | PAYLOAD: {payload}"
         return None
 
-    def _test_xss_payload(self, form: Tag, payload: str) -> Optional[str]:
+    def _test_xss_payload(self, form: Tag, payload: str, baseline_text: str) -> Optional[str]:
         response = self.submit_form(form, payload, self.target_url)
-        if payload in response.content.decode():
+        response_text = response.text
+        baseline_lower = self._normalize_text(baseline_text)
+
+        if payload in response_text and self._normalize_text(payload) not in baseline_lower:
             action = str(form.get('action'))
-            return f"XSS Found in: {action} | PAYLOAD: {payload}"
+            return f"XSS Reflected in: {action} | PAYLOAD: {payload}"
         return None
 
     # --- SCANNERS (Standard Lists) ---
@@ -114,6 +144,7 @@ class VulnerabilityScanner:
     def scan_sql_injection(self, custom_payloads: List[str] = []) -> Generator[Dict[str, Any], None, None]:
         sql_payloads = custom_payloads if custom_payloads else ["'", "' OR '1'='1", '" OR "1"="1']
         forms = self.extract_forms(self.target_url)
+        baseline_texts = [self.submit_form(form, "VulnSpectraSafeValue123", self.target_url).text for form in forms]
         
         total_scans = len(forms) * len(sql_payloads)
         current_scan = 0
@@ -124,17 +155,14 @@ class VulnerabilityScanner:
             yield {"type": "progress", "percent": 100}
             return
 
-        # Create Thread Pool
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_threads) as executor:
-            # Dictionary to map futures to payloads (optional, for debugging)
             futures = []
             
-            # Queue up all jobs
-            for form in forms:
+            for index, form in enumerate(forms):
+                baseline_text = baseline_texts[index] if index < len(baseline_texts) else ""
                 for payload in sql_payloads:
-                    futures.append(executor.submit(self._test_sql_payload, form, payload))
+                    futures.append(executor.submit(self._test_sql_payload, form, payload, baseline_text))
             
-            # Process results as they finish (Streaming)
             for future in concurrent.futures.as_completed(futures):
                 current_scan += 1
                 percent = int((current_scan / total_scans) * 100)
@@ -143,13 +171,14 @@ class VulnerabilityScanner:
                 try:
                     result = future.result()
                     if result:
-                         yield {"type": "finding", "data": result}
+                        yield {"type": "finding", "data": result}
                 except Exception:
                     continue
 
     def scan_xss(self, custom_payloads: List[str] = []) -> Generator[Dict[str, Any], None, None]:
         xss_payloads = custom_payloads if custom_payloads else ["<script>alert('XSS')</script>", "<img src=x onerror=alert(1)>"]
         forms = self.extract_forms(self.target_url)
+        baseline_texts = [self.submit_form(form, "VulnSpectraSafeValue123", self.target_url).text for form in forms]
         
         total_scans = len(forms) * len(xss_payloads)
         current_scan = 0
@@ -163,9 +192,10 @@ class VulnerabilityScanner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_threads) as executor:
             futures = []
             
-            for form in forms:
+            for index, form in enumerate(forms):
+                baseline_text = baseline_texts[index] if index < len(baseline_texts) else ""
                 for payload in xss_payloads:
-                    futures.append(executor.submit(self._test_xss_payload, form, payload))
+                    futures.append(executor.submit(self._test_xss_payload, form, payload, baseline_text))
             
             for future in concurrent.futures.as_completed(futures):
                 current_scan += 1
@@ -175,7 +205,7 @@ class VulnerabilityScanner:
                 try:
                     result = future.result()
                     if result:
-                         yield {"type": "finding", "data": result}
+                        yield {"type": "finding", "data": result}
                 except Exception:
                     continue
 

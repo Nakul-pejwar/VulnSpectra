@@ -44,13 +44,17 @@ def scan_sql_api():
     data = request.json
     url = data.get('url', '') 
     payloads = data.get('payloads', []) 
-    
+
+    if not url:
+        return jsonify(error="Missing URL"), 400
+
     def generate():
-        scanner = VulnerabilityScanner(url)
-        # Iterate over the generator from scanner.py
-        for update in scanner.scan_sql_injection(payloads):
-            # Send as a JSON line + newline character
-            yield json.dumps(update) + "\n"
+        try:
+            scanner = VulnerabilityScanner(url)
+            for update in scanner.scan_sql_injection(payloads):
+                yield json.dumps(update) + "\n"
+        except Exception as exc:
+            yield json.dumps({"type": "error", "msg": str(exc)}) + "\n"
 
     return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
@@ -59,11 +63,17 @@ def scan_xss_api():
     data = request.json
     url = data.get('url', '') 
     payloads = data.get('payloads', []) 
-    
+
+    if not url:
+        return jsonify(error="Missing URL"), 400
+
     def generate():
-        scanner = VulnerabilityScanner(url)
-        for update in scanner.scan_xss(payloads):
-            yield json.dumps(update) + "\n"
+        try:
+            scanner = VulnerabilityScanner(url)
+            for update in scanner.scan_xss(payloads):
+                yield json.dumps(update) + "\n"
+        except Exception as exc:
+            yield json.dumps({"type": "error", "msg": str(exc)}) + "\n"
 
     return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
