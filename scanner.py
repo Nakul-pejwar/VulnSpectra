@@ -60,8 +60,14 @@ class VulnerabilityScanner:
         return post_data
 
     def submit_form(self, form: Tag, value: str, url: str) -> requests.Response:
-        action: str = str(form.get("action"))
-        post_url: str = urljoin(url, action)
+        action: str = form.get("action") or ""  # Default to empty string
+        
+        # If no action, default to the current URL
+        if not action:
+            post_url: str = url
+        else:
+            post_url: str = urljoin(url, action)
+        
         method: str = self._normalize_text(form.get("method")) or "get"
         post_data: Dict[str, Any] = self._build_form_data(form, value)
 
@@ -144,7 +150,19 @@ class VulnerabilityScanner:
     def scan_sql_injection(self, custom_payloads: List[str] = []) -> Generator[Dict[str, Any], None, None]:
         sql_payloads = custom_payloads if custom_payloads else ["'", "' OR '1'='1", '" OR "1"="1']
         forms = self.extract_forms(self.target_url)
-        baseline_texts = [self.submit_form(form, "VulnSpectraSafeValue123", self.target_url).text for form in forms]
+        
+        if not forms:
+            yield {"type": "error", "msg": "No HTML forms found on target URL"}
+            return
+        
+        baseline_texts = []
+        for form in forms:
+            try:
+                response = self.submit_form(form, "VulnSpectraSafeValue123", self.target_url)
+                baseline_texts.append(response.text)
+            except Exception as e:
+                yield {"type": "error", "msg": f"Failed to get baseline: {str(e)}"}
+                return
         
         total_scans = len(forms) * len(sql_payloads)
         current_scan = 0

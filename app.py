@@ -21,8 +21,22 @@ def home():
 def scan_headers_api():
     """Checks for missing security headers."""
     data = request.json
-    url = data.get('url', '') # type: ignore
+    url = data.get('url', '').strip() # type: ignore
     
+    if not url:
+        return jsonify(error="Missing URL"), 400
+    
+    # Validate URL format
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        if not result.scheme or result.scheme not in ('http', 'https'):
+            return jsonify(error="URL must start with http:// or https://"), 400
+        if not result.netloc:
+            return jsonify(error="Invalid URL format"), 400
+    except Exception as e:
+        return jsonify(error=f"URL validation failed: {str(e)}"), 400
+
     print(f"{Fore.CYAN}[WEB] Scanning Headers for: {url}")
     scanner = VulnerabilityScanner(url)
     results = scanner.check_security_headers()
@@ -32,8 +46,22 @@ def scan_headers_api():
 def scan_ports_api():
     """Scans for open ports."""
     data = request.json
-    url = data.get('url', '') # type: ignore
+    url = data.get('url', '').strip() # type: ignore
     
+    if not url:
+        return jsonify(error="Missing URL"), 400
+    
+    # Validate URL format
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        if not result.scheme or result.scheme not in ('http', 'https'):
+            return jsonify(error="URL must start with http:// or https://"), 400
+        if not result.netloc:
+            return jsonify(error="Invalid URL format"), 400
+    except Exception as e:
+        return jsonify(error=f"URL validation failed: {str(e)}"), 400
+
     print(f"{Fore.CYAN}[WEB] Scanning Ports for: {url}")
     scanner = VulnerabilityScanner(url)
     results = scanner.scan_ports()
@@ -42,11 +70,22 @@ def scan_ports_api():
 @app.route('/api/scan/sql', methods=['POST'])
 def scan_sql_api():
     data = request.json
-    url = data.get('url', '') 
+    url = data.get('url', '').strip()
     payloads = data.get('payloads', []) 
 
     if not url:
         return jsonify(error="Missing URL"), 400
+    
+    # Validate URL format
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        if not result.scheme or result.scheme not in ('http', 'https'):
+            return jsonify(error="URL must start with http:// or https://"), 400
+        if not result.netloc:
+            return jsonify(error="Invalid URL format"), 400
+    except Exception as e:
+        return jsonify(error=f"URL validation failed: {str(e)}"), 400
 
     def generate():
         try:
@@ -61,11 +100,22 @@ def scan_sql_api():
 @app.route('/api/scan/xss', methods=['POST'])
 def scan_xss_api():
     data = request.json
-    url = data.get('url', '') 
+    url = data.get('url', '').strip() 
     payloads = data.get('payloads', []) 
 
     if not url:
         return jsonify(error="Missing URL"), 400
+    
+    # Validate URL format
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        if not result.scheme or result.scheme not in ('http', 'https'):
+            return jsonify(error="URL must start with http:// or https://"), 400
+        if not result.netloc:
+            return jsonify(error="Invalid URL format"), 400
+    except Exception as e:
+        return jsonify(error=f"URL validation failed: {str(e)}"), 400
 
     def generate():
         try:

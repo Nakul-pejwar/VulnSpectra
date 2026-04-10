@@ -113,90 +113,76 @@ const fetchJsonStep = async (endpoint, payload = {}) => {
   return response.json();
 };
 
-const fetchStreamStep = async (endpoint, payload, title, icon) => {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'Request failed');
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  const issues = [];
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split('\n');
-    buffer = parts.pop();
-    for (const part of parts) {
-      if (!part.trim()) continue;
-      try {
-        const payload = JSON.parse(part);
-        if (payload.type === 'finding') {
-          issues.push(payload.data);
-          updateProgress(Math.min(90, 40 + issues.length * 5), `Detecting ${title}: ${issues.length} findings`);
-        }
-      } catch (err) {
-        console.warn('Stream parse failed', err);
-      }
-    }
-  }
-  return { title, icon, issues };
-};
-
 const startScan = async () => {
-  const url = targetUrl.value.trim();
+  const url = document.getElementById('targetUrl').value.trim();
+  
   if (!url) {
-    targetUrl.focus();
+    alert('Please enter a target URL');
     return;
   }
-
-  scanButton.disabled = true;
-  updateProgress(8, 'Launching scan engine...');
-  detailsContainer.innerHTML = '';
-
-  const results = [];
-  const activeHeaders = document.getElementById('headersToggle').checked;
-  const activePorts = document.getElementById('portsToggle').checked;
-  const activeSql = document.getElementById('sqlToggle').checked;
-  const activeXss = document.getElementById('xssToggle').checked;
-
+  
+  // Validate URL format
   try {
-    if (activeHeaders) {
-      updateProgress(18, 'Checking security headers...');
-      const json = await fetchJsonStep('/api/scan/headers', { url });
-      results.push({ title: 'Security Headers', icon: '🔒', issues: json.results || [] });
-    }
-    if (activePorts) {
-      updateProgress(30, 'Scanning open ports...');
-      const json = await fetchJsonStep('/api/scan/ports', { url });
-      results.push({ title: 'Open Ports', icon: '🔌', issues: json.results || [] });
-    }
-    if (activeSql) {
-      updateProgress(46, 'Fuzzing SQL injection...');
-      const sqlResult = await fetchStreamStep('/api/scan/sql', { url, payloads: customSqlPayloads }, 'SQL Injection', '💉');
-      results.push(sqlResult);
-    }
-    if (activeXss) {
-      updateProgress(62, 'Testing XSS attack vectors...');
-      const xssResult = await fetchStreamStep('/api/scan/xss', { url, payloads: customXssPayloads }, 'XSS Scanner', '💀');
-      results.push(xssResult);
-    }
-
-    updateProgress(100, 'Scan complete. Review the dashboard.');
+    new URL(url);
+  } catch {
+    alert('Invalid URL format');
+    return;
+  }
+  
+  detailsContainer.innerHTML = '';
+  scanStatus.textContent = 'Initializing scan...';
+  scanProgressBar.style.width = '0%';
+  
+  const scans = [];
+  
+  if (document.getElementById('headersToggle').checked) {
+    scans.push(
+      fetchJsonStep('/api/scan/headers', { url }).then(res => ({
+        title: 'Security Headers',
+        icon: '🔒',
+        issues: res.results
+      }))
+    );
+  }
+  
+  if (document.getElementById('portsToggle').checked) {
+    scans.push(
+      fetchJsonStep('/api/scan/ports', { url }).then(res => ({
+        title: 'Open Ports',
+        icon: '🔌',
+        issues: res.results
+      }))
+    );
+  }
+  
+  if (document.getElementById('sqlToggle').checked) {
+    scans.push(
+      fetchStreamStep('/api/scan/sql', 
+        { url, payloads: customSqlPayloads }, 
+        'SQL Injection', 
+        '💉'
+      )
+    );
+  }
+  
+  if (document.getElementById('xssToggle').checked) {
+    scans.push(
+      fetchStreamStep('/api/scan/xss', 
+        { url, payloads: customXssPayloads }, 
+        'XSS', 
+        '💀'
+      )
+    );
+  }
+  
+  try {
+    const results = await Promise.all(scans);
     handleFlashResult(results);
+    scanStatus.textContent = 'Scan complete!';
+    scanProgressBar.style.width = '100%';
   } catch (error) {
-    createErrorCard('Scan error', error.message || 'Unable to complete request.');
-    updateProgress(100, 'Scan interrupted.');
-  } finally {
-    scanButton.disabled = false;
+    createErrorCard('Scan Error', error.message);
+    scanStatus.textContent = 'Scan failed: ' + error.message;
   }
 };
 
